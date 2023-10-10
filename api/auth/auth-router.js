@@ -1,13 +1,10 @@
 // `checkUsernameFree`, `checkUsernameExists` ve `checkPasswordLength` gereklidir (require)
 // `auth-middleware.js` deki middleware fonksiyonları. Bunlara burda ihtiyacınız var!
-const bcrypt = require("bcryptjs");
+const userModel = require("../users/users-model");
+const mw = require("./auth-middleware");
 const router = require("express").Router();
-const {
-  usernameBostami,
-  sifreGecerlimi,
-  usernameVarmi,
-} = require("./auth-middleware");
-const User = require("../users/users-model");
+const bcrypt = require("bcryptjs");
+
 /**
   1 [POST] /api/auth/register { "username": "sue", "password": "1234" }
 
@@ -32,14 +29,14 @@ const User = require("../users/users-model");
  */
 router.post(
   "/register",
-  usernameBostami,
-  sifreGecerlimi,
+  mw.usernameBostami,
+  mw.sifreGecerlimi,
   async (req, res, next) => {
-    const username = req.body;
+    const { username } = req.body;
     try {
-      const user = await User.ekle({
+      const user = await userModel.ekle({
         username: username,
-        password: req.hashedPassword,
+        password: req.hashPassword,
       });
       res.status(201).json(user);
     } catch (error) {
@@ -63,18 +60,16 @@ router.post(
     "message": "Geçersiz kriter!"
   }
  */
-router.post("/login", usernameVarmi, (req, res, next) => {
+router.post("/login", mw.usernameVarmi, (req, res, next) => {
   const { password } = req.body;
   try {
     if (req.user && bcrypt.compareSync(password, req.user.password)) {
       req.session.user = req.user;
-      console.log(req.session.user);
       res.status(200).json({ message: `Hoşgeldin ${req.user.username}` });
     } else {
       res.status(401).json({ message: "Geçersiz kriter!" });
     }
   } catch (error) {
-    console.log(error);
     next(error);
   }
 });
@@ -98,16 +93,16 @@ router.get("/logout", (req, res, next) => {
   if (req.session && req.session.user) {
     req.session.destroy((error) => {
       if (error) {
-        next({ message: "Session silinirken hata olustu" });
+        next({ message: "session silinirken hata oluştu" });
       } else {
-        //res.set('Set-Cookie', `cikolatacips=; Path=/; Expires=Mon, 01 Jan 1970 00:00:19 GMT`)
+        res.set("Set-Cookie", "cikolatacips=;");
         res.json({ message: "Çıkış yapildi" });
       }
     });
   } else {
-    res.status(400).json({ message: "Oturum bulunamadı!" });
+    res.json({ message: "Oturum bulunamadı!" });
   }
 });
 
 // Diğer modüllerde kullanılabilmesi için routerı "exports" nesnesine eklemeyi unutmayın.
-module.export = router;
+module.exports = router;
